@@ -1,0 +1,7 @@
+worker/node_modules/
+worker/.dev.vars
+worker/.wrangler/
+.playwright-mcp/
+.DS_Store
+.claude/
+.agents/
