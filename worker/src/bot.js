@@ -3,6 +3,7 @@ import {
   nextWorkingDays, formatDateLabel, hasSlotPassed
 } from './slots.js';
 import { buildDailyReport } from './dailyReport.js';
+import { buildTrainerReport } from './trainerStats.js';
 import {
   getBookingsForDate, getBookedSlotsInRange, createBooking,
   getAdminChatId, claimAdminChatId, getSession, setSession, clearSession,
@@ -16,7 +17,7 @@ const HELP_TEXT = [
   '/tomorrow — записи на завтра',
   '/date ГГГГ-ММ-ДД — записи на любую дату',
   '/book — создать новую запись вручную',
-  '/stats — посещаемость сайта'
+  '/stats — посещаемость сайта и тренажёров'
 ].join('\n');
 
 const PHONE_RE = /^[\d\s\+\-\(\)]{10,18}$/;
@@ -54,8 +55,10 @@ async function startBookFlow(env, chatId) {
 }
 
 async function replySiteStats(env, chatId) {
-  const text = await buildDailyReport(env, getTodayMoscow());
+  const today = getTodayMoscow();
+  const text = await buildDailyReport(env, today);
   await sendMessage(env, chatId, text);
+  await sendMessage(env, chatId, await buildTrainerReport(env, today));
 }
 
 async function handleCommand(env, chatId, text) {

@@ -7,6 +7,7 @@ import { hashVisitor, recordPageView, recordDwell, prunePageViews, getDailyStats
 import { renderStatsPage } from './statsPage.js';
 import { sendEveningStats } from './dailyStats.js';
 import { ALLOWED_ORIGINS, timingSafeEqual, beaconSourceAllowed } from './httpGuards.js';
+import { parseTrainerBeacon, recordTrainerCounts, pruneTrainerCounters } from './trainerStats.js';
 
 const EVENING_STATS_CRON = '0 17 * * *';
 const MAX_AVAILABILITY_DAYS = 62;   // widest date range /api/availability will serve
@@ -186,6 +187,28 @@ async function handleTrack(request, env, cors) {
   return noContent();
 }
 
+// Anonymous trainer counter. Deliberately reads nothing about the visitor —
+// no IP (so no IP-keyed rate limit either), no User-Agent, no country —
+// because both trainers promise not to collect personal data. Per-beacon
+// increments are clamped in parseTrainerBeacon instead.
+async function handleTrainerHit(request, env, cors) {
+  const noContent = () => new Response(null, { status: 204, headers: cors });
+  if (!beaconSourceAllowed(request.headers.get('Origin'), request.headers.get('Referer'))) {
+    return noContent();
+  }
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return noContent();
+  }
+  const parsed = parseTrainerBeacon(body);
+  if (parsed) {
+    await recordTrainerCounts(env.DB, { date: getTodayMoscow(), ...parsed });
+  }
+  return noContent();
+}
+
 async function handleStats(request, env) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   if (env.RATE_LIMIT && !(await checkRateLimit(env, `stats:${ip}`, 20))) {
@@ -243,6 +266,9 @@ export default {
     if (url.pathname === '/api/track' && request.method === 'POST') {
       return handleTrack(request, env, cors);
     }
+    if (url.pathname === '/api/hit' && request.method === 'POST') {
+      return handleTrainerHit(request, env, cors);
+    }
     if (url.pathname === '/api/stats' && request.method === 'GET') {
       return handleStats(request, env);
     }
@@ -256,6 +282,7 @@ export default {
     if (event.cron === EVENING_STATS_CRON) {
       ctx.waitUntil(guardCron(env, 'вечерняя статистика', sendEveningStats(env)));
       ctx.waitUntil(guardCron(env, 'очистка pageviews', prunePageViews(env.DB, addDays(getTodayMoscow(), -PAGEVIEW_RETENTION_DAYS))));
+      ctx.waitUntil(guardCron(env, 'очистка счётчиков тренажёров', pruneTrainerCounters(env.DB, addDays(getTodayMoscow(), -PAGEVIEW_RETENTION_DAYS))));
       ctx.waitUntil(guardCron(env, 'очистка записей', deleteBookingsBefore(env.DB, addDays(getTodayMoscow(), -BOOKING_RETENTION_DAYS))));
     } else {
       ctx.waitUntil(guardCron(env, 'напоминания', runReminderSweep(env)));
