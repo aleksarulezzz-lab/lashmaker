@@ -49,6 +49,15 @@ CREATE INDEX IF NOT EXISTS idx_page_views_date ON page_views(date);
 CREATE INDEX IF NOT EXISTS idx_page_views_view_id ON page_views(view_id);
 CREATE INDEX IF NOT EXISTS idx_page_views_source ON page_views(source);
 
+-- Anonymous per-day trainer counters: no IP, User-Agent, hash or visit id.
+CREATE TABLE IF NOT EXISTS trainer_counters (
+  date TEXT NOT NULL,
+  site TEXT NOT NULL,
+  metric TEXT NOT NULL,
+  count INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (date, site, metric)
+);
+
 -- Records which migration-*.sql files have been applied to this database.
 -- Each migration file ends with an INSERT of its own name here.
 CREATE TABLE IF NOT EXISTS schema_migrations (

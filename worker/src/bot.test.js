@@ -68,6 +68,12 @@ mock.module('./dailyReport.js', {
   }
 });
 
+mock.module('./trainerStats.js', {
+  exports: {
+    buildTrainerReport: async () => 'TRAINER-REPORT'
+  }
+});
+
 const { handleMessage, handleCallbackQuery } = await import('./bot.js');
 const env = { DB: {} };
 
@@ -237,7 +243,7 @@ test('an interrupting command clears a mid-flow /book session so later free text
   assert.match(sentMessages[sentMessages.length - 1].text, /умею/);
 });
 
-test('/stats sends the current daily report to the admin', async () => {
+test('/stats sends the current site and trainer reports to the admin', async () => {
   resetState(); sentMessages.length = 0;
   await handleMessage(env, { chat: { id: 111 }, text: '/start' });
   sentMessages.length = 0;
@@ -245,9 +251,10 @@ test('/stats sends the current daily report to the admin', async () => {
 
   await handleMessage(env, { chat: { id: 111 }, text: '/stats' });
 
-  assert.equal(sentMessages.length, 1);
+  assert.equal(sentMessages.length, 2);
   assert.equal(sentMessages[0].chatId, 111);
   assert.equal(sentMessages[0].text, siteReport);
+  assert.equal(sentMessages[1].text, 'TRAINER-REPORT');
 });
 
 test('/stats is refused for a non-admin chat', async () => {
